@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 
 type MapProps = {
   className?: string;
@@ -32,6 +33,24 @@ const Map: React.FC<MapProps> = ({ className, onLocationSelect }) => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [currentMarker, setCurrentMarker] = useState<google.maps.Marker | null>(null);
+  const [apiKeyError, setApiKeyError] = useState(false);
+
+  // Check for API key error in console logs
+  useEffect(() => {
+    if (loadError) {
+      console.error("Google Maps load error:", loadError);
+      
+      // Check if the error is related to RefererNotAllowed
+      if (loadError.toString().includes("RefererNotAllowed")) {
+        setApiKeyError(true);
+        toast({
+          title: "Google Maps API Error",
+          description: "The API key is restricted to specific domains. Please replace it with your own key.",
+          variant: "destructive"
+        });
+      }
+    }
+  }, [loadError]);
 
   // Store map reference
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -104,8 +123,29 @@ const Map: React.FC<MapProps> = ({ className, onLocationSelect }) => {
     }
   };
 
-  if (loadError) {
-    return <div className="text-red-500">Error loading maps</div>;
+  if (apiKeyError) {
+    return (
+      <div className={cn("h-full w-full rounded-md overflow-hidden flex flex-col items-center justify-center p-6 bg-muted/30", className)}>
+        <div className="bg-white p-6 rounded-lg shadow-md max-w-md text-center">
+          <h3 className="text-lg font-semibold text-red-600 mb-3">Google Maps API Key Error</h3>
+          <p className="mb-4">The Google Maps API key is restricted to specific domains and cannot be used with this project.</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            To fix this issue, you need to:
+          </p>
+          <ol className="text-left text-sm space-y-2 mb-4">
+            <li>1. Create your own Google Maps API key at <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a></li>
+            <li>2. Enable the Maps JavaScript API</li>
+            <li>3. Configure the API key to allow your domain</li>
+            <li>4. Replace the API key in the Map component</li>
+          </ol>
+          <p className="text-xs text-muted-foreground">For development, you can set the key to have no restrictions, but for production, always restrict it to your specific domains.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !apiKeyError) {
+    return <div className="text-red-500">Error loading maps: {loadError.toString()}</div>;
   }
 
   return (
